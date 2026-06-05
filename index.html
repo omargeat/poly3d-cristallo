@@ -12,7 +12,12 @@
 </head>
 <body>
 
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true;" 
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind; 
+                           autoStart: true; 
+                           warmUpTolerance: 5; 
+                           missTolerance: 5; 
+                           filterMinCF: 0.0001; 
+                           filterBeta: 0.001;" 
              color-space="sRGB" 
              renderer="colorManagement: true, physicallyCorrectLights: true" 
              vr-mode-ui="enabled: false" 
@@ -27,7 +32,7 @@
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="#cristal" 
                           position="0 0 0" 
-                          scale="1 1 1" 
+                          scale="0.25 0.25 0.25" 
                           rotation="0 0 0">
             </a-gltf-model>
         </a-entity>
