@@ -123,9 +123,9 @@
                   let pinchRatio = distanceNew / this.pinchDistanceOld;
                   let newScale = scaleStart * pinchRatio;
                   
-                  // Limites de zoom adaptées pour le scale géant
-                  let minS = this.isProjection ? 500 : 0.02;
-                  let maxS = this.isProjection ? 10000 : 5.0;
+                  // Limites de zoom corrigées pour le scale de 200
+                  let minS = this.isProjection ? 50 : 0.02;
+                  let maxS = this.isProjection ? 1000 : 5.0;
                   
                   newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
@@ -175,7 +175,7 @@
             <a-entity id="hud-anchor" position="0 0 -5000">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="2000 2000 2000" 
+                              scale="200 200 200" 
                               shadow="cast: true; receive: true" 
                               visible="false"
                               disable-culling>
