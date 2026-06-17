@@ -119,9 +119,9 @@
                   let pinchRatio = distanceNew / this.pinchDistanceOld;
                   let newScale = scaleStart * pinchRatio;
                   
-                  // Limites adaptées pour l'échelle à 2800
-                  let minS = this.isProjection ? 500 : 0.02;
-                  let maxS = this.isProjection ? 15000 : 5.0;
+                  // Limites adaptées pour l'échelle à 3600
+                  let minS = this.isProjection ? 800 : 0.02;
+                  let maxS = this.isProjection ? 18000 : 5.0;
                   
                   newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
@@ -164,14 +164,14 @@
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="90000">
+        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="110000">
             <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
             <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
             
-            <a-entity id="hud-anchor" position="0 0 -70000">
+            <a-entity id="hud-anchor" position="0 0 -90000">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="2800 2800 2800" 
+                              scale="3600 3600 3600" 
                               shadow="cast: true; receive: true" 
                               visible="false"
                               disable-culling>
