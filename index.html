@@ -39,7 +39,6 @@
     </style>
 
     <script>
-      // SCRIPT : Empêcher la disparition des atomes lors de la rotation
       AFRAME.registerComponent('disable-culling', {
         init: function () {
           this.el.addEventListener('model-loaded', () => {
@@ -55,7 +54,6 @@
         }
       });
 
-      // SCRIPT : Gestionnaire 100% Mobile (Android)
       AFRAME.registerComponent('app-manager', {
         init: function () {
           this.isProjection = false;
@@ -63,7 +61,6 @@
           this.cristalHUD = document.getElementById("cristal-hud");
           const btn = document.getElementById("btn-projection");
 
-          // BASCULE DES MODES
           btn.addEventListener("click", () => {
               this.isProjection = !this.isProjection;
               
@@ -88,7 +85,6 @@
               }
           });
 
-          // LOGIQUE TACTILE (Android Uniquement)
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
           this.rotationSpeed = 1.5;
@@ -123,9 +119,9 @@
                   let pinchRatio = distanceNew / this.pinchDistanceOld;
                   let newScale = scaleStart * pinchRatio;
                   
-                  // Limites de zoom corrigées pour le scale de 200
-                  let minS = this.isProjection ? 50 : 0.02;
-                  let maxS = this.isProjection ? 1000 : 5.0;
+                  // Limites de zoom recalibrées pour le nouveau scale géant (2000)
+                  let minS = this.isProjection ? 500 : 0.02;
+                  let maxS = this.isProjection ? 10000 : 5.0;
                   
                   newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
@@ -159,7 +155,7 @@
     <a-scene app-manager 
              mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; warmUpTolerance: 5; missTolerance: 100; filterMinCF: 0.00001; filterBeta: 0.005;" 
              color-space="sRGB" 
-             renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.0;" 
+             renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.0; logarithmicDepthBuffer: true;" 
              shadow="type: pcfsoft"
              vr-mode-ui="enabled: false" 
              device-orientation-permission-ui="enabled: false">
@@ -168,14 +164,14 @@
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="10000">
+        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="60000">
             <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
             <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
             
-            <a-entity id="hud-anchor" position="0 0 -5000">
+            <a-entity id="hud-anchor" position="0 0 -50000">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="200 200 200" 
+                              scale="2000 2000 2000" 
                               shadow="cast: true; receive: true" 
                               visible="false"
                               disable-culling>
