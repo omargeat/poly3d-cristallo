@@ -39,7 +39,6 @@
     </style>
 
     <script>
-      // SCRIPT : Gestionnaire global des interactions
       AFRAME.registerComponent('app-manager', {
         init: function () {
           this.isProjection = false;
@@ -47,30 +46,25 @@
           this.cristalHUD = document.getElementById("cristal-hud");
           const btn = document.getElementById("btn-projection");
 
-          // --- LOGIQUE DU BOUTON (Bascule AR vs PDF) ---
+          // --- BASCULE DES MODES ---
           btn.addEventListener("click", () => {
               this.isProjection = !this.isProjection;
               
               if (this.isProjection) {
-                  // 1. On cache le modèle lié au papier
                   this.cristalAR.setAttribute("visible", "false");
-                  
-                  // 2. On récupère son angle actuel pour le transfert
                   let r = this.cristalAR.object3D.rotation;
                   
-                  // 3. On l'arrondit à l'angle droit absolu (90°)
+                  // Alignement parfait sur l'angle droit le plus proche
                   let snapX = Math.round(r.x / (Math.PI/2)) * (Math.PI/2);
                   let snapY = Math.round(r.y / (Math.PI/2)) * (Math.PI/2);
                   let snapZ = Math.round(r.z / (Math.PI/2)) * (Math.PI/2);
                   
-                  // 4. On applique cet angle parfait au modèle de l'écran (HUD)
                   this.cristalHUD.object3D.rotation.set(snapX, snapY, snapZ);
                   this.cristalHUD.setAttribute("visible", "true");
                   
                   btn.textContent = "Retour au Papier (AR)";
                   btn.classList.add("ortho-mode");
               } else {
-                  // Retour à la réalité augmentée
                   this.cristalHUD.setAttribute("visible", "false");
                   this.cristalAR.setAttribute("visible", "true");
                   btn.textContent = "Mode Projection (Vue Ortho)";
@@ -78,39 +72,77 @@
               }
           });
 
-          // --- LOGIQUE TACTILE (Souris & Doigts) ---
+          // --- LOGIQUE TACTILE & SOURIS ---
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
+          this.initialPinchDistance = 0;
+          this.initialScale = 0.25;
           this.rotationSpeed = 1.5;
 
+          const getDistance = (touches) => {
+              let dx = touches[0].clientX - touches[1].clientX;
+              let dy = touches[0].clientY - touches[1].clientY;
+              return Math.sqrt(dx * dx + dy * dy);
+          };
+
           const onDragStart = (e) => {
-              this.isDragging = true;
-              let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-              let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-              this.previousPosition = { x: clientX, y: clientY };
+              if (e.touches && e.touches.length === 2) {
+                  // Mode Zoom (2 doigts)
+                  this.isDragging = false;
+                  this.initialPinchDistance = getDistance(e.touches);
+                  let target = this.isProjection ? this.cristalHUD : this.cristalAR;
+                  this.initialScale = target.object3D.scale.x;
+              } else {
+                  // Mode Rotation (1 doigt ou clic souris)
+                  this.isDragging = true;
+                  let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                  let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                  this.previousPosition = { x: clientX, y: clientY };
+              }
           };
 
           const onDragMove = (e) => {
+              let target = this.isProjection ? this.cristalHUD : this.cristalAR;
+
+              // Zoom
+              if (e.touches && e.touches.length === 2) {
+                  let currentDistance = getDistance(e.touches);
+                  let scaleFactor = currentDistance / this.initialPinchDistance;
+                  let newScale = this.initialScale * scaleFactor;
+                  // Limites de zoom
+                  newScale = Math.max(0.02, Math.min(15.0, newScale));
+                  target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+                  return;
+              }
+
+              // Rotation
               if (!this.isDragging) return;
               let clientX = e.touches ? e.touches[0].clientX : e.clientX;
               let clientY = e.touches ? e.touches[0].clientY : e.clientY;
               let deltaX = clientX - this.previousPosition.x;
               let deltaY = clientY - this.previousPosition.y;
               
-              // On cible le modèle actif (AR ou HUD)
-              let target = this.isProjection ? this.cristalHUD.object3D : this.cristalAR.object3D;
-              
-              target.rotation.y += deltaX * (this.rotationSpeed / 100);
-              target.rotation.x += deltaY * (this.rotationSpeed / 100);
-              
+              target.object3D.rotation.y += deltaX * (this.rotationSpeed / 100);
+              target.object3D.rotation.x += deltaY * (this.rotationSpeed / 100);
               this.previousPosition = { x: clientX, y: clientY };
           };
 
           const onDragEnd = () => { this.isDragging = false; };
 
+          // Zoom à la molette (Mac)
+          const onWheel = (e) => {
+              let target = this.isProjection ? this.cristalHUD : this.cristalAR;
+              let currentScale = target.object3D.scale.x;
+              let newScale = currentScale - (e.deltaY * 0.005);
+              newScale = Math.max(0.02, Math.min(15.0, newScale));
+              target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+          };
+
           document.addEventListener('mousedown', onDragStart);
           document.addEventListener('mousemove', onDragMove);
           document.addEventListener('mouseup', onDragEnd);
+          document.addEventListener('wheel', onWheel);
+          
           document.addEventListener('touchstart', onDragStart, {passive: false});
           document.addEventListener('touchmove', onDragMove, {passive: false});
           document.addEventListener('touchend', onDragEnd);
@@ -143,7 +175,7 @@
             <a-entity id="hud-anchor" position="0 0 -40">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="10 10 10" 
+                              scale="2 2 2" 
                               shadow="cast: true; receive: true" 
                               visible="false">
                 </a-gltf-model>
