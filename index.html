@@ -7,8 +7,57 @@
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     
-    <script src="https://cdn.jsdelivr.net/gh/fcor/aframe-gesture-detector-component@master/dist/aframe-gesture-detector.component.min.js"></script>
-    
+    <script>
+      AFRAME.registerComponent('swipe-rotate', {
+        schema: { speed: {default: 1.5} },
+        init: function () {
+          this.isDragging = false;
+          this.previousPosition = { x: 0, y: 0 };
+          
+          this.onDragStart = this.onDragStart.bind(this);
+          this.onDragMove = this.onDragMove.bind(this);
+          this.onDragEnd = this.onDragEnd.bind(this);
+
+          // Écoute des gestes sur l'écran tactile
+          document.addEventListener('touchstart', this.onDragStart);
+          document.addEventListener('touchmove', this.onDragMove);
+          document.addEventListener('touchend', this.onDragEnd);
+          
+          // Écoute de la souris (pour que tu puisses tester sur ton Mac !)
+          document.addEventListener('mousedown', this.onDragStart);
+          document.addEventListener('mousemove', this.onDragMove);
+          document.addEventListener('mouseup', this.onDragEnd);
+        },
+        
+        onDragStart: function (event) {
+          this.isDragging = true;
+          let clientX = event.touches ? event.touches[0].clientX : event.clientX;
+          let clientY = event.touches ? event.touches[0].clientY : event.clientY;
+          this.previousPosition = { x: clientX, y: clientY };
+        },
+
+        onDragMove: function (event) {
+          if (!this.isDragging) return;
+          
+          let clientX = event.touches ? event.touches[0].clientX : event.clientX;
+          let clientY = event.touches ? event.touches[0].clientY : event.clientY;
+          
+          let deltaX = clientX - this.previousPosition.x;
+          let deltaY = clientY - this.previousPosition.y;
+          
+          // Applique la rotation sur les axes X et Y
+          this.el.object3D.rotation.y += deltaX * (this.data.speed / 100);
+          this.el.object3D.rotation.x += deltaY * (this.data.speed / 100);
+          
+          this.previousPosition = { x: clientX, y: clientY };
+        },
+
+        onDragEnd: function () {
+          this.isDragging = false;
+        }
+      });
+    </script>
+
     <style>
         body { margin: 0; overflow: hidden; }
     </style>
@@ -21,7 +70,6 @@
                            missTolerance: 100; 
                            filterMinCF: 0.00001; 
                            filterBeta: 0.005;" 
-             gesture-detector
              color-space="sRGB" 
              renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.2;" 
              vr-mode-ui="enabled: false" 
@@ -41,8 +89,7 @@
                           position="0 0 0" 
                           scale="0.25 0.25 0.25" 
                           rotation="0 0 0"
-                          class="clickable"
-                          gesture-handler="minScale: 0.05; maxScale: 1">
+                          swipe-rotate>
             </a-gltf-model>
         </a-entity>
 
