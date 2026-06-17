@@ -11,18 +11,17 @@
     <style>
         body { margin: 0; overflow: hidden; font-family: -apple-system, sans-serif; }
         
-        /* Interface Utilisateur (Le Bouton) */
         #ui-container {
             position: absolute;
             bottom: 40px;
             width: 100%;
             display: flex;
             justify-content: center;
-            z-index: 1000; /* Assure que le bouton est par-dessus la caméra */
-            pointer-events: none; /* Permet de cliquer à travers le conteneur... */
+            z-index: 1000;
+            pointer-events: none;
         }
         #btn-projection {
-            pointer-events: auto; /* ...mais rend le bouton cliquable */
+            pointer-events: auto;
             background-color: #007AFF;
             color: white;
             border: none;
@@ -32,25 +31,25 @@
             font-weight: 600;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.2s;
         }
-        #btn-projection.ortho-mode {
-            background-color: #FF3B30; /* Devient rouge quand on est en mode schéma */
+        #btn-projection:active {
+            background-color: #0051a8;
+            transform: scale(0.95);
         }
     </style>
 
     <script>
-      // SCRIPT MAISON : Rotation à 1 doigt + Zoom à 2 doigts
+      // SCRIPT : Rotation (1 doigt) et Zoom (2 doigts) stables
       AFRAME.registerComponent('touch-controls', {
         schema: { 
             rotationSpeed: {default: 1.5},
             minScale: {default: 0.05},
-            maxScale: {default: 3.0}
+            maxScale: {default: 2.0}
         },
         init: function () {
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
-          
           this.initialPinchDistance = 0;
           this.initialScale = this.el.object3D.scale.clone();
 
@@ -58,20 +57,18 @@
           this.onDragMove = this.onDragMove.bind(this);
           this.onDragEnd = this.onDragEnd.bind(this);
 
-          // Écouteurs Tactiles (Smartphone)
+          // Écouteurs tactiles
           document.addEventListener('touchstart', this.onDragStart, {passive: false});
           document.addEventListener('touchmove', this.onDragMove, {passive: false});
           document.addEventListener('touchend', this.onDragEnd);
           
-          // Écouteurs Souris/Trackpad (Mac)
+          // Écouteurs Mac (souris/trackpad)
           document.addEventListener('mousedown', this.onDragStart);
           document.addEventListener('mousemove', this.onDragMove);
           document.addEventListener('mouseup', this.onDragEnd);
-          
-          // Molette de souris pour simuler le "Pinch to zoom" sur Mac
           document.addEventListener('wheel', (e) => {
               let scale = this.el.object3D.scale.x;
-              scale -= e.deltaY * 0.005;
+              scale -= e.deltaY * 0.002;
               scale = Math.max(this.data.minScale, Math.min(this.data.maxScale, scale));
               this.el.setAttribute('scale', `${scale} ${scale} ${scale}`);
           });
@@ -85,12 +82,10 @@
 
         onDragStart: function (event) {
           if (event.touches && event.touches.length === 2) {
-              // MODE ZOOM
               this.isDragging = false;
               this.initialPinchDistance = this.getDistance(event.touches);
               this.initialScale = this.el.object3D.scale.clone();
           } else {
-              // MODE ROTATION
               this.isDragging = true;
               let clientX = event.touches ? event.touches[0].clientX : event.clientX;
               let clientY = event.touches ? event.touches[0].clientY : event.clientY;
@@ -100,7 +95,6 @@
 
         onDragMove: function (event) {
           if (event.touches && event.touches.length === 2) {
-              // Appliquer le Zoom
               let currentDistance = this.getDistance(event.touches);
               let scaleFactor = currentDistance / this.initialPinchDistance;
               let newScale = this.initialScale.x * scaleFactor;
@@ -110,8 +104,6 @@
           }
 
           if (!this.isDragging) return;
-          
-          // Appliquer la Rotation
           let clientX = event.touches ? event.touches[0].clientX : event.clientX;
           let clientY = event.touches ? event.touches[0].clientY : event.clientY;
           let deltaX = clientX - this.previousPosition.x;
@@ -119,7 +111,6 @@
           
           this.el.object3D.rotation.y += deltaX * (this.data.rotationSpeed / 100);
           this.el.object3D.rotation.x += deltaY * (this.data.rotationSpeed / 100);
-          
           this.previousPosition = { x: clientX, y: clientY };
         },
 
@@ -128,35 +119,21 @@
         }
       });
 
-      // SCRIPT BASCULE : Perspective vs Orthographique (L'astuce de la distance focale)
+      // SCRIPT : Aligner la rotation pour forcer la vue de face (Projection)
       document.addEventListener("DOMContentLoaded", () => {
           const btn = document.getElementById("btn-projection");
-          let isOrthographic = false;
           
           btn.addEventListener("click", () => {
               const cristal = document.getElementById("modele-cristal");
-              isOrthographic = !isOrthographic;
+              let r = cristal.object3D.rotation;
               
-              if (isOrthographic) {
-                  const currentScale = cristal.getAttribute('scale').x;
-                  cristal.setAttribute('data-original-scale', currentScale);
-                  
-                  // On recule l'objet à 10m et on le grossit x20 pour annuler la perspective
-                  cristal.setAttribute("position", "0 0 -10");
-                  const newScale = currentScale * 20; 
-                  cristal.setAttribute("scale", `${newScale} ${newScale} ${newScale}`);
-                  
-                  btn.textContent = "Passer en Mode Perspective";
-                  btn.classList.add("ortho-mode");
-              } else {
-                  // Retour à la normale
-                  cristal.setAttribute("position", "0 0 0");
-                  const originalScale = cristal.getAttribute('data-original-scale') || 0.25;
-                  cristal.setAttribute("scale", `${originalScale} ${originalScale} ${originalScale}`);
-                  
-                  btn.textContent = "Passer en Mode Projection";
-                  btn.classList.remove("ortho-mode");
-              }
+              // Mathématique : arrondit la rotation à l'angle droit (90°) le plus proche
+              let snapX = Math.round(r.x / (Math.PI / 2)) * (Math.PI / 2);
+              let snapY = Math.round(r.y / (Math.PI / 2)) * (Math.PI / 2);
+              let snapZ = Math.round(r.z / (Math.PI / 2)) * (Math.PI / 2);
+              
+              // Applique l'alignement instantanément
+              cristal.object3D.rotation.set(snapX, snapY, snapZ);
           });
       });
     </script>
@@ -164,24 +141,24 @@
 <body>
     
     <div id="ui-container">
-        <button id="btn-projection">Passer en Mode Projection</button>
+        <button id="btn-projection">Alignement Vue de Face</button>
     </div>
 
     <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; warmUpTolerance: 5; missTolerance: 100; filterMinCF: 0.00001; filterBeta: 0.005;" 
              color-space="sRGB" 
-             renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.2;" 
+             renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.0;" 
              vr-mode-ui="enabled: false" 
-             device-orientation-permission-ui="enabled: false"
-             fog="type: linear; color: #111111; near: 0.1; far: 2.0">
+             device-orientation-permission-ui="enabled: false">
       
         <a-assets>
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-camera position="0 0 0" look-controls="enabled: false">
+            <a-entity light="type: point; intensity: 2.0; distance: 10; decay: 1"></a-entity>
+        </a-camera>
 
-        <a-entity light="type: ambient; intensity: 0.6;"></a-entity>
-        <a-entity light="type: directional; intensity: 1.5; castShadow: true; position: -1 4 2"></a-entity>
+        <a-entity light="type: ambient; intensity: 0.5;"></a-entity>
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model id="modele-cristal"
