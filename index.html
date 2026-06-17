@@ -33,120 +33,102 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        #btn-projection:active {
-            background-color: #0051a8;
-            transform: scale(0.95);
+        #btn-projection.ortho-mode {
+            background-color: #FF3B30;
         }
     </style>
 
     <script>
-      // SCRIPT : Rotation (1 doigt) et Zoom (2 doigts) stables
-      AFRAME.registerComponent('touch-controls', {
-        schema: { 
-            rotationSpeed: {default: 1.5},
-            minScale: {default: 0.05},
-            maxScale: {default: 2.0}
-        },
+      // SCRIPT : Gestionnaire global des interactions
+      AFRAME.registerComponent('app-manager', {
         init: function () {
+          this.isProjection = false;
+          this.cristalAR = document.getElementById("cristal-ar");
+          this.cristalHUD = document.getElementById("cristal-hud");
+          const btn = document.getElementById("btn-projection");
+
+          // --- LOGIQUE DU BOUTON (Bascule AR vs PDF) ---
+          btn.addEventListener("click", () => {
+              this.isProjection = !this.isProjection;
+              
+              if (this.isProjection) {
+                  // 1. On cache le modèle lié au papier
+                  this.cristalAR.setAttribute("visible", "false");
+                  
+                  // 2. On récupère son angle actuel pour le transfert
+                  let r = this.cristalAR.object3D.rotation;
+                  
+                  // 3. On l'arrondit à l'angle droit absolu (90°)
+                  let snapX = Math.round(r.x / (Math.PI/2)) * (Math.PI/2);
+                  let snapY = Math.round(r.y / (Math.PI/2)) * (Math.PI/2);
+                  let snapZ = Math.round(r.z / (Math.PI/2)) * (Math.PI/2);
+                  
+                  // 4. On applique cet angle parfait au modèle de l'écran (HUD)
+                  this.cristalHUD.object3D.rotation.set(snapX, snapY, snapZ);
+                  this.cristalHUD.setAttribute("visible", "true");
+                  
+                  btn.textContent = "Retour au Papier (AR)";
+                  btn.classList.add("ortho-mode");
+              } else {
+                  // Retour à la réalité augmentée
+                  this.cristalHUD.setAttribute("visible", "false");
+                  this.cristalAR.setAttribute("visible", "true");
+                  btn.textContent = "Mode Projection (Vue Ortho)";
+                  btn.classList.remove("ortho-mode");
+              }
+          });
+
+          // --- LOGIQUE TACTILE (Souris & Doigts) ---
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
-          this.initialPinchDistance = 0;
-          this.initialScale = this.el.object3D.scale.clone();
+          this.rotationSpeed = 1.5;
 
-          this.onDragStart = this.onDragStart.bind(this);
-          this.onDragMove = this.onDragMove.bind(this);
-          this.onDragEnd = this.onDragEnd.bind(this);
-
-          // Écouteurs tactiles
-          document.addEventListener('touchstart', this.onDragStart, {passive: false});
-          document.addEventListener('touchmove', this.onDragMove, {passive: false});
-          document.addEventListener('touchend', this.onDragEnd);
-          
-          // Écouteurs Mac (souris/trackpad)
-          document.addEventListener('mousedown', this.onDragStart);
-          document.addEventListener('mousemove', this.onDragMove);
-          document.addEventListener('mouseup', this.onDragEnd);
-          document.addEventListener('wheel', (e) => {
-              let scale = this.el.object3D.scale.x;
-              scale -= e.deltaY * 0.002;
-              scale = Math.max(this.data.minScale, Math.min(this.data.maxScale, scale));
-              this.el.setAttribute('scale', `${scale} ${scale} ${scale}`);
-          });
-        },
-        
-        getDistance: function(touches) {
-            let dx = touches[0].clientX - touches[1].clientX;
-            let dy = touches[0].clientY - touches[1].clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        },
-
-        onDragStart: function (event) {
-          if (event.touches && event.touches.length === 2) {
-              this.isDragging = false;
-              this.initialPinchDistance = this.getDistance(event.touches);
-              this.initialScale = this.el.object3D.scale.clone();
-          } else {
+          const onDragStart = (e) => {
               this.isDragging = true;
-              let clientX = event.touches ? event.touches[0].clientX : event.clientX;
-              let clientY = event.touches ? event.touches[0].clientY : event.clientY;
+              let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+              let clientY = e.touches ? e.touches[0].clientY : e.clientY;
               this.previousPosition = { x: clientX, y: clientY };
-          }
-        },
+          };
 
-        onDragMove: function (event) {
-          if (event.touches && event.touches.length === 2) {
-              let currentDistance = this.getDistance(event.touches);
-              let scaleFactor = currentDistance / this.initialPinchDistance;
-              let newScale = this.initialScale.x * scaleFactor;
-              newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, newScale));
-              this.el.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-              return;
-          }
+          const onDragMove = (e) => {
+              if (!this.isDragging) return;
+              let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+              let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+              let deltaX = clientX - this.previousPosition.x;
+              let deltaY = clientY - this.previousPosition.y;
+              
+              // On cible le modèle actif (AR ou HUD)
+              let target = this.isProjection ? this.cristalHUD.object3D : this.cristalAR.object3D;
+              
+              target.rotation.y += deltaX * (this.rotationSpeed / 100);
+              target.rotation.x += deltaY * (this.rotationSpeed / 100);
+              
+              this.previousPosition = { x: clientX, y: clientY };
+          };
 
-          if (!this.isDragging) return;
-          let clientX = event.touches ? event.touches[0].clientX : event.clientX;
-          let clientY = event.touches ? event.touches[0].clientY : event.clientY;
-          let deltaX = clientX - this.previousPosition.x;
-          let deltaY = clientY - this.previousPosition.y;
-          
-          this.el.object3D.rotation.y += deltaX * (this.data.rotationSpeed / 100);
-          this.el.object3D.rotation.x += deltaY * (this.data.rotationSpeed / 100);
-          this.previousPosition = { x: clientX, y: clientY };
-        },
+          const onDragEnd = () => { this.isDragging = false; };
 
-        onDragEnd: function () {
-          this.isDragging = false;
+          document.addEventListener('mousedown', onDragStart);
+          document.addEventListener('mousemove', onDragMove);
+          document.addEventListener('mouseup', onDragEnd);
+          document.addEventListener('touchstart', onDragStart, {passive: false});
+          document.addEventListener('touchmove', onDragMove, {passive: false});
+          document.addEventListener('touchend', onDragEnd);
         }
-      });
-
-      // SCRIPT : Aligner la rotation pour forcer la vue de face (Projection)
-      document.addEventListener("DOMContentLoaded", () => {
-          const btn = document.getElementById("btn-projection");
-          
-          btn.addEventListener("click", () => {
-              const cristal = document.getElementById("modele-cristal");
-              let r = cristal.object3D.rotation;
-              
-              // Mathématique : arrondit la rotation à l'angle droit (90°) le plus proche
-              let snapX = Math.round(r.x / (Math.PI / 2)) * (Math.PI / 2);
-              let snapY = Math.round(r.y / (Math.PI / 2)) * (Math.PI / 2);
-              let snapZ = Math.round(r.z / (Math.PI / 2)) * (Math.PI / 2);
-              
-              // Applique l'alignement instantanément
-              cristal.object3D.rotation.set(snapX, snapY, snapZ);
-          });
       });
     </script>
 </head>
 <body>
     
     <div id="ui-container">
-        <button id="btn-projection">Alignement Vue de Face</button>
+        <button id="btn-projection">Mode Projection (Vue Ortho)</button>
     </div>
 
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; warmUpTolerance: 5; missTolerance: 100; filterMinCF: 0.00001; filterBeta: 0.005;" 
+    <a-scene app-manager 
+             mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; warmUpTolerance: 5; missTolerance: 100; filterMinCF: 0.00001; filterBeta: 0.005;" 
              color-space="sRGB" 
              renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.0;" 
+             shadow="type: pcfsoft"
              vr-mode-ui="enabled: false" 
              device-orientation-permission-ui="enabled: false">
       
@@ -155,18 +137,25 @@
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false">
-            <a-entity light="type: point; intensity: 2.0; distance: 10; decay: 1"></a-entity>
+            <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
+            <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
+            
+            <a-entity id="hud-anchor" position="0 0 -40">
+                <a-gltf-model id="cristal-hud" 
+                              src="#cristal-asset" 
+                              scale="10 10 10" 
+                              shadow="cast: true; receive: true" 
+                              visible="false">
+                </a-gltf-model>
+            </a-entity>
         </a-camera>
 
-        <a-entity light="type: ambient; intensity: 0.5;"></a-entity>
-
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model id="modele-cristal"
+            <a-gltf-model id="cristal-ar"
                           src="#cristal-asset" 
                           position="0 0 0" 
                           scale="0.25 0.25 0.25" 
-                          rotation="0 0 0"
-                          touch-controls>
+                          shadow="cast: true; receive: true">
             </a-gltf-model>
         </a-entity>
 
