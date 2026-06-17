@@ -6,6 +6,9 @@
     <title>Poly3D - Cristallochimie L2</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/gh/fcor/aframe-gesture-detector-component@master/dist/aframe-gesture-detector.component.min.js"></script>
+    
     <style>
         body { margin: 0; overflow: hidden; }
     </style>
@@ -15,9 +18,10 @@
     <a-scene mindar-image="imageTargetSrc: ./targets.mind; 
                            autoStart: true; 
                            warmUpTolerance: 5; 
-                           missTolerance: 5; 
+                           missTolerance: 100; 
                            filterMinCF: 0.00001; 
                            filterBeta: 0.005;" 
+             gesture-detector
              color-space="sRGB" 
              renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.2;" 
              vr-mode-ui="enabled: false" 
@@ -30,13 +34,15 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
-        <a-entity light="type: directional; intensity: 1.2; castShadow: true; position: 1 4 3"></a-entity>
+        <a-entity light="type: directional; intensity: 1.2; position: 1 4 3"></a-entity>
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="#cristal" 
                           position="0 0 0" 
                           scale="0.25 0.25 0.25" 
-                          rotation="0 0 0">
+                          rotation="0 0 0"
+                          class="clickable"
+                          gesture-handler="minScale: 0.05; maxScale: 1">
             </a-gltf-model>
         </a-entity>
 
