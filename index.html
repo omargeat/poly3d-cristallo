@@ -46,7 +46,7 @@
           this.cristalHUD = document.getElementById("cristal-hud");
           const btn = document.getElementById("btn-projection");
 
-          // --- BASCULE DES MODES ---
+          // --- BASCULE DES MODES (AR vs PROJECTION ORTHO) ---
           btn.addEventListener("click", () => {
               this.isProjection = !this.isProjection;
               
@@ -54,7 +54,7 @@
                   this.cristalAR.setAttribute("visible", "false");
                   let r = this.cristalAR.object3D.rotation;
                   
-                  // Alignement parfait sur l'angle droit le plus proche
+                  // Alignement parfait sur l'angle droit (Snap à 90°)
                   let snapX = Math.round(r.x / (Math.PI/2)) * (Math.PI/2);
                   let snapY = Math.round(r.y / (Math.PI/2)) * (Math.PI/2);
                   let snapZ = Math.round(r.z / (Math.PI/2)) * (Math.PI/2);
@@ -72,11 +72,11 @@
               }
           });
 
-          // --- LOGIQUE TACTILE & SOURIS ---
+          // --- LOGIQUE TACTILE & SOURIS (Zoom & Rotation) ---
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
           this.initialPinchDistance = 0;
-          this.initialScale = 0.25;
+          this.initialScale = 0;
           this.rotationSpeed = 1.5;
 
           const getDistance = (touches) => {
@@ -86,14 +86,13 @@
           };
 
           const onDragStart = (e) => {
+              let target = this.isProjection ? this.cristalHUD : this.cristalAR;
+              
               if (e.touches && e.touches.length === 2) {
-                  // Mode Zoom (2 doigts)
                   this.isDragging = false;
                   this.initialPinchDistance = getDistance(e.touches);
-                  let target = this.isProjection ? this.cristalHUD : this.cristalAR;
                   this.initialScale = target.object3D.scale.x;
               } else {
-                  // Mode Rotation (1 doigt ou clic souris)
                   this.isDragging = true;
                   let clientX = e.touches ? e.touches[0].clientX : e.clientX;
                   let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -104,18 +103,22 @@
           const onDragMove = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
 
-              // Zoom
+              // Action : Zoom
               if (e.touches && e.touches.length === 2) {
                   let currentDistance = getDistance(e.touches);
                   let scaleFactor = currentDistance / this.initialPinchDistance;
                   let newScale = this.initialScale * scaleFactor;
-                  // Limites de zoom
-                  newScale = Math.max(0.02, Math.min(15.0, newScale));
+                  
+                  // Limites dynamiques selon le mode (L'objet à 5km nécessite un très grand scale)
+                  let minS = this.isProjection ? 50 : 0.05;
+                  let maxS = this.isProjection ? 800 : 5.0;
+                  
+                  newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
                   return;
               }
 
-              // Rotation
+              // Action : Rotation
               if (!this.isDragging) return;
               let clientX = e.touches ? e.touches[0].clientX : e.clientX;
               let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -129,12 +132,18 @@
 
           const onDragEnd = () => { this.isDragging = false; };
 
-          // Zoom à la molette (Mac)
+          // Zoom à la molette/trackpad (Mac)
           const onWheel = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
               let currentScale = target.object3D.scale.x;
-              let newScale = currentScale - (e.deltaY * 0.005);
-              newScale = Math.max(0.02, Math.min(15.0, newScale));
+              // Le facteur de zoom doit être plus rapide pour le grand modèle HUD
+              let zoomSpeed = this.isProjection ? 0.5 : 0.005; 
+              let newScale = currentScale - (e.deltaY * zoomSpeed);
+              
+              let minS = this.isProjection ? 50 : 0.05;
+              let maxS = this.isProjection ? 800 : 5.0;
+              
+              newScale = Math.max(minS, Math.min(maxS, newScale));
               target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
           };
 
@@ -168,14 +177,14 @@
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false">
+        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="10000">
             <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
             <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
             
-            <a-entity id="hud-anchor" position="0 0 -40">
+            <a-entity id="hud-anchor" position="0 0 -5000">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="2 2 2" 
+                              scale="200 200 200" 
                               shadow="cast: true; receive: true" 
                               visible="false">
                 </a-gltf-model>
