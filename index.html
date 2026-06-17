@@ -39,7 +39,7 @@
     </style>
 
     <script>
-      // SCRIPT NOUVEAU : Désactiver le Frustum Culling pour empêcher la disparition des atomes
+      // SCRIPT : Empêcher le moteur de cacher les atomes hors-champ
       AFRAME.registerComponent('disable-culling', {
         init: function () {
           this.el.addEventListener('model-loaded', () => {
@@ -47,7 +47,7 @@
             if (mesh) {
               mesh.traverse((node) => {
                 if (node.isMesh) {
-                  node.frustumCulled = false; // L'instruction magique
+                  node.frustumCulled = false;
                 }
               });
             }
@@ -55,7 +55,7 @@
         }
       });
 
-      // SCRIPT MAISON : Gestionnaire global des interactions (Zoom & Rotation)
+      // SCRIPT : Gestionnaire des interactions
       AFRAME.registerComponent('app-manager', {
         init: function () {
           this.isProjection = false;
@@ -63,7 +63,7 @@
           this.cristalHUD = document.getElementById("cristal-hud");
           const btn = document.getElementById("btn-projection");
 
-          // --- LOGIQUE DU BOUTON (Bascule AR vs PROJECTION ABSOLUE) ---
+          // BASCULE DES MODES
           btn.addEventListener("click", () => {
               this.isProjection = !this.isProjection;
               
@@ -88,13 +88,9 @@
               }
           });
 
-          // --- LOGIQUE TACTILE & SOURIS ---
+          // LOGIQUE TACTILE & SOURIS
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
-          
-          this.initialScaleAR = 0.25;
-          this.initialScaleHUD = 4000;
-          
           this.rotationSpeed = 1.5;
           this.pinchDistanceOld = 0;
 
@@ -122,7 +118,6 @@
           const onMove = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
 
-              // Action : ZOOM
               if (e.touches && e.touches.length === 2) {
                   let distanceNew = getDistance(e.touches);
                   let scaleStart = parseFloat(target.getAttribute('data-scale-start')) || target.object3D.scale.x;
@@ -130,15 +125,15 @@
                   let pinchRatio = distanceNew / this.pinchDistanceOld;
                   let newScale = scaleStart * pinchRatio;
                   
-                  let minS = this.isProjection ? 1000 : 0.02;
-                  let maxS = this.isProjection ? 20000 : 5.0;
+                  // Limites de zoom adaptées pour le scale de 800
+                  let minS = this.isProjection ? 200 : 0.02;
+                  let maxS = this.isProjection ? 4000 : 5.0;
                   
                   newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
                   return;
               }
 
-              // Action : ROTATION
               if (!this.isDragging) return;
               let clientX = e.touches ? e.touches[0].clientX : e.clientX;
               let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -156,11 +151,12 @@
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
               let currentScale = target.object3D.scale.x;
               
-              let zoomSpeed = this.isProjection ? 10 : 0.005; 
+              // Vitesse de zoom adaptée pour la distance intermédiaire
+              let zoomSpeed = this.isProjection ? 2.0 : 0.005; 
               let newScale = currentScale - (e.deltaY * zoomSpeed);
               
-              let minS = this.isProjection ? 1000 : 0.02;
-              let maxS = this.isProjection ? 20000 : 5.0;
+              let minS = this.isProjection ? 200 : 0.02;
+              let maxS = this.isProjection ? 4000 : 5.0;
               
               newScale = Math.max(minS, Math.min(maxS, newScale));
               target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
@@ -196,14 +192,14 @@
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="150000">
+        <a-camera position="0 0 0" look-controls="enabled: false" near="1000" far="30000">
             <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
             <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
             
-            <a-entity id="hud-anchor" position="0 0 -100000">
+            <a-entity id="hud-anchor" position="0 0 -20000">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="4000 4000 4000" 
+                              scale="800 800 800" 
                               shadow="cast: true; receive: true" 
                               visible="false"
                               disable-culling>
@@ -216,12 +212,4 @@
                           src="#cristal-asset" 
                           position="0 0 0" 
                           scale="0.25 0.25 0.25" 
-                          shadow="cast: true; receive: true"
-                          disable-culling>
-            </a-gltf-model>
-        </a-entity>
-
-    </a-scene>
-
-</body>
-</html>
+                          shadow="cast: true; receive: true
