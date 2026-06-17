@@ -16,10 +16,10 @@
                            autoStart: true; 
                            warmUpTolerance: 5; 
                            missTolerance: 5; 
-                           filterMinCF: 0.0001; 
-                           filterBeta: 0.001;" 
+                           filterMinCF: 0.00001; 
+                           filterBeta: 0.005;" 
              color-space="sRGB" 
-             renderer="colorManagement: true, physicallyCorrectLights: true" 
+             renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.2;" 
              vr-mode-ui="enabled: false" 
              device-orientation-permission-ui="enabled: false">
       
@@ -28,6 +28,9 @@
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
+        <a-entity light="type: directional; intensity: 1.2; castShadow: true; position: 1 4 3"></a-entity>
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="#cristal" 
