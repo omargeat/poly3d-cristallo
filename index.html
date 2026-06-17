@@ -50,36 +50,40 @@
         }
       });
 
-      // GESTIONNAIRE INTERACTION 100% ANDROID TACTILE
+      // GESTIONNAIRE DOUBLE CAMÉRA 100% ANDROID
       AFRAME.registerComponent('app-manager', {
         init: function () {
           this.isProjection = false;
           this.cristalAR = document.getElementById("cristal-ar");
           this.cristalHUD = document.getElementById("cristal-hud");
+          this.perspCam = document.getElementById("persp-cam");
+          this.orthoCam = document.getElementById("ortho-cam");
           const btn = document.getElementById("btn-projection");
 
-          // PASSAGE EN MODE PROJECTION
           btn.addEventListener("click", () => {
               this.isProjection = !this.isProjection;
               
               if (this.isProjection) {
                   this.cristalAR.setAttribute("visible", "false");
                   
-                  // Récupération de la rotation AR actuelle
-                  let r = this.cristalAR.object3D.rotation;
+                  // ACTION NOUVELLE : On active la vraie caméra orthographique
+                  this.orthoCam.setAttribute("camera", "active", true);
                   
-                  // Snap parfait à 90° pour forcer la vue de face géométrique
+                  let r = this.cristalAR.object3D.rotation;
                   let snapX = Math.round(r.x / (Math.PI/2)) * (Math.PI/2);
                   let snapY = Math.round(r.y / (Math.PI/2)) * (Math.PI/2);
                   let snapZ = Math.round(r.z / (Math.PI/2)) * (Math.PI/2);
                   
                   this.cristalHUD.object3D.rotation.set(snapX, snapY, snapZ);
-                  this.cristalHUD.setAttribute("scale", "3.5 3.5 3.5"); // Reset échelle de départ propre
+                  this.cristalHUD.setAttribute("scale", "1.2 1.2 1.2"); // Taille idéale en mode Ortho
                   this.cristalHUD.setAttribute("visible", "true");
                   
                   btn.textContent = "Retour au Papier (AR)";
                   btn.classList.add("ortho-mode");
               } else {
+                  // ACTION NOUVELLE : On réactive la caméra perspective d'origine
+                  this.perspCam.setAttribute("camera", "active", true);
+                  
                   this.cristalHUD.setAttribute("visible", "false");
                   this.cristalAR.setAttribute("visible", "true");
                   btn.textContent = "Mode Projection (Vue Ortho)";
@@ -87,7 +91,7 @@
               }
           });
 
-          // TOUCH LOGIC
+          // LOGIQUE TACTILE
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
           this.rotationSpeed = 1.5;
@@ -115,23 +119,20 @@
           const onTouchMove = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
 
-              // ZOOM (Pinch à 2 doigts)
               if (e.touches.length === 2) {
                   let distanceNew = getDistance(e.touches);
                   let scaleStart = parseFloat(target.getAttribute('data-scale-start')) || target.object3D.scale.x;
                   let pinchRatio = distanceNew / this.pinchDistanceOld;
                   let newScale = scaleStart * pinchRatio;
                   
-                  // Limites de zoom adaptées pour les deux modes
-                  let minS = this.isProjection ? 1.0 : 0.05;
-                  let maxS = this.isProjection ? 15.0 : 2.0;
+                  let minS = this.isProjection ? 0.4 : 0.02;
+                  let maxS = this.isProjection ? 4.0 : 2.0;
                   
                   newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
                   return;
               }
 
-              // ROTATION (1 doigt)
               if (!this.isDragging) return;
               let deltaX = e.touches[0].clientX - this.previousPosition.x;
               let deltaY = e.touches[0].clientY - this.previousPosition.y;
@@ -168,20 +169,23 @@
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="100">
-            <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
-            <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
-            
-            <a-entity id="hud-anchor" position="0 0 -5" scale="1 1 0.001">
+        <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
+        <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
+
+        <a-camera id="persp-cam" position="0 0 0" look-controls="enabled: false" near="0.1" far="100" active="true">
+        </a-camera>
+
+        <a-entity id="ortho-cam" camera="ortho: true; near: 0.1; far: 100;" position="0 0 0">
+            <a-entity id="hud-anchor" position="0 0 -5">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="3.5 3.5 3.5" 
+                              scale="1.2 1.2 1.2" 
                               shadow="cast: true; receive: true" 
                               visible="false"
                               disable-culling>
                 </a-gltf-model>
             </a-entity>
-        </a-camera>
+        </a-entity>
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model id="cristal-ar"
