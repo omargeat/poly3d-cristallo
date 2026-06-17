@@ -39,6 +39,7 @@
     </style>
 
     <script>
+      // SCRIPT MAISON : Gestionnaire global des interactions (Zoom & Rotation)
       AFRAME.registerComponent('app-manager', {
         init: function () {
           this.isProjection = false;
@@ -46,53 +47,65 @@
           this.cristalHUD = document.getElementById("cristal-hud");
           const btn = document.getElementById("btn-projection");
 
-          // --- BASCULE DES MODES (AR vs PROJECTION ORTHO) ---
+          // --- LOGIQUE DU BOUTON (Bascule AR vs PROJECTION ABSOLUE) ---
           btn.addEventListener("click", () => {
               this.isProjection = !this.isProjection;
               
               if (this.isProjection) {
+                  // 1. Cacher le modèle AR
                   this.cristalAR.setAttribute("visible", "false");
-                  let r = this.cristalAR.object3D.rotation;
                   
-                  // Alignement parfait sur l'angle droit (Snap à 90°)
+                  // 2. Récupérer et aligner la rotation (Snap à 90°)
+                  let r = this.cristalAR.object3D.rotation;
                   let snapX = Math.round(r.x / (Math.PI/2)) * (Math.PI/2);
                   let snapY = Math.round(r.y / (Math.PI/2)) * (Math.PI/2);
                   let snapZ = Math.round(r.z / (Math.PI/2)) * (Math.PI/2);
                   
+                  // 3. Appliquer au modèle HUD et l'afficher
                   this.cristalHUD.object3D.rotation.set(snapX, snapY, snapZ);
                   this.cristalHUD.setAttribute("visible", "true");
                   
                   btn.textContent = "Retour au Papier (AR)";
                   btn.classList.add("ortho-mode");
               } else {
+                  // Retour à la Réalité Augmentée
                   this.cristalHUD.setAttribute("visible", "false");
                   this.cristalAR.setAttribute("visible", "true");
-                  btn.textContent = "Mode Projection (Vue Ortho)";
+                  btn.textContent = "Mode Projection (Vue Ortho Totale)";
                   btn.classList.remove("ortho-mode");
               }
           });
 
-          // --- LOGIQUE TACTILE & SOURIS (Zoom & Rotation) ---
+          // --- LOGIQUE TACTILE & SOURIS ---
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
-          this.initialPinchDistance = 0;
-          this.initialScale = 0;
+          
+          // Paramètres d'échelle initiales recalibrés pour les distances extrêmes
+          this.initialScaleAR = 0.25;
+          this.initialScaleHUD = 4000; // x4000 car l'objet est à 100km !
+          
           this.rotationSpeed = 1.5;
+          this.pinchDistanceOld = 0;
 
+          // Utilitaire : Distance entre deux doigts
           const getDistance = (touches) => {
               let dx = touches[0].clientX - touches[1].clientX;
               let dy = touches[0].clientY - touches[1].clientY;
               return Math.sqrt(dx * dx + dy * dy);
           };
 
-          const onDragStart = (e) => {
+          // --- GESTION START ---
+          const onStart = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
               
               if (e.touches && e.touches.length === 2) {
+                  // Mode ZOOM (Pinch)
                   this.isDragging = false;
-                  this.initialPinchDistance = getDistance(e.touches);
-                  this.initialScale = target.object3D.scale.x;
+                  this.pinchDistanceOld = getDistance(e.touches);
+                  // Sauvegarde du scale au début du pinch pour un calcul relatif
+                  target.setAttribute('data-scale-start', target.object3D.scale.x);
               } else {
+                  // Mode ROTATION (Un doigt ou souris)
                   this.isDragging = true;
                   let clientX = e.touches ? e.touches[0].clientX : e.clientX;
                   let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -100,25 +113,29 @@
               }
           };
 
-          const onDragMove = (e) => {
+          // --- GESTION MOVE ---
+          const onMove = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
 
-              // Action : Zoom
+              // Action : ZOOM TACTILE (2 doigts)
               if (e.touches && e.touches.length === 2) {
-                  let currentDistance = getDistance(e.touches);
-                  let scaleFactor = currentDistance / this.initialPinchDistance;
-                  let newScale = this.initialScale * scaleFactor;
+                  let distanceNew = getDistance(e.touches);
+                  let scaleStart = parseFloat(target.getAttribute('data-scale-start')) || target.object3D.scale.x;
                   
-                  // Limites dynamiques selon le mode (L'objet à 5km nécessite un très grand scale)
-                  let minS = this.isProjection ? 50 : 0.05;
-                  let maxS = this.isProjection ? 800 : 5.0;
+                  // Calcul du ratio de pinch
+                  let pinchRatio = distanceNew / this.pinchDistanceOld;
+                  let newScale = scaleStart * pinchRatio;
+                  
+                  // Limites dynamiques selon le mode (Extrêmes pour le mode Ortho)
+                  let minS = this.isProjection ? 1000 : 0.02;
+                  let maxS = this.isProjection ? 20000 : 5.0;
                   
                   newScale = Math.max(minS, Math.min(maxS, newScale));
                   target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
                   return;
               }
 
-              // Action : Rotation
+              // Action : ROTATION (1 doigt/souris)
               if (!this.isDragging) return;
               let clientX = e.touches ? e.touches[0].clientX : e.clientX;
               let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -130,31 +147,34 @@
               this.previousPosition = { x: clientX, y: clientY };
           };
 
-          const onDragEnd = () => { this.isDragging = false; };
+          // --- GESTION END ---
+          const onEnd = () => { this.isDragging = false; };
 
-          // Zoom à la molette/trackpad (Mac)
+          // --- ZOOM À LA MOLETTE / TRACKPAD (Mac) ---
           const onWheel = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
               let currentScale = target.object3D.scale.x;
-              // Le facteur de zoom doit être plus rapide pour le grand modèle HUD
-              let zoomSpeed = this.isProjection ? 0.5 : 0.005; 
+              
+              // Le facteur de zoom doit être beaucoup plus rapide pour le modèle HUD hyper-lointain
+              let zoomSpeed = this.isProjection ? 10 : 0.005; 
               let newScale = currentScale - (e.deltaY * zoomSpeed);
               
-              let minS = this.isProjection ? 50 : 0.05;
-              let maxS = this.isProjection ? 800 : 5.0;
+              let minS = this.isProjection ? 1000 : 0.02;
+              let maxS = this.isProjection ? 20000 : 5.0;
               
               newScale = Math.max(minS, Math.min(maxS, newScale));
               target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
           };
 
-          document.addEventListener('mousedown', onDragStart);
-          document.addEventListener('mousemove', onDragMove);
-          document.addEventListener('mouseup', onDragEnd);
+          // Attachement des écouteurs globaux
+          document.addEventListener('mousedown', onStart);
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onEnd);
           document.addEventListener('wheel', onWheel);
           
-          document.addEventListener('touchstart', onDragStart, {passive: false});
-          document.addEventListener('touchmove', onDragMove, {passive: false});
-          document.addEventListener('touchend', onDragEnd);
+          document.addEventListener('touchstart', onStart, {passive: false});
+          document.addEventListener('touchmove', onMove, {passive: false});
+          document.addEventListener('touchend', onEnd);
         }
       });
     </script>
@@ -162,7 +182,7 @@
 <body>
     
     <div id="ui-container">
-        <button id="btn-projection">Mode Projection (Vue Ortho)</button>
+        <button id="btn-projection">Mode Projection (Vue Ortho Totale)</button>
     </div>
 
     <a-scene app-manager 
@@ -177,14 +197,14 @@
             <a-asset-item id="cristal-asset" src="./ccnontangent.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="10000">
+        <a-camera position="0 0 0" look-controls="enabled: false" near="0.1" far="150000">
             <a-entity light="type: directional; intensity: 1.5; castShadow: true;" position="-2 3 2"></a-entity>
             <a-entity light="type: ambient; intensity: 0.4;"></a-entity>
             
-            <a-entity id="hud-anchor" position="0 0 -5000">
+            <a-entity id="hud-anchor" position="0 0 -100000">
                 <a-gltf-model id="cristal-hud" 
                               src="#cristal-asset" 
-                              scale="200 200 200" 
+                              scale="4000 4000 4000" 
                               shadow="cast: true; receive: true" 
                               visible="false">
                 </a-gltf-model>
