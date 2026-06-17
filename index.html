@@ -39,6 +39,22 @@
     </style>
 
     <script>
+      // SCRIPT NOUVEAU : Désactiver le Frustum Culling pour empêcher la disparition des atomes
+      AFRAME.registerComponent('disable-culling', {
+        init: function () {
+          this.el.addEventListener('model-loaded', () => {
+            const mesh = this.el.getObject3D('mesh');
+            if (mesh) {
+              mesh.traverse((node) => {
+                if (node.isMesh) {
+                  node.frustumCulled = false; // L'instruction magique
+                }
+              });
+            }
+          });
+        }
+      });
+
       // SCRIPT MAISON : Gestionnaire global des interactions (Zoom & Rotation)
       AFRAME.registerComponent('app-manager', {
         init: function () {
@@ -52,23 +68,19 @@
               this.isProjection = !this.isProjection;
               
               if (this.isProjection) {
-                  // 1. Cacher le modèle AR
                   this.cristalAR.setAttribute("visible", "false");
                   
-                  // 2. Récupérer et aligner la rotation (Snap à 90°)
                   let r = this.cristalAR.object3D.rotation;
                   let snapX = Math.round(r.x / (Math.PI/2)) * (Math.PI/2);
                   let snapY = Math.round(r.y / (Math.PI/2)) * (Math.PI/2);
                   let snapZ = Math.round(r.z / (Math.PI/2)) * (Math.PI/2);
                   
-                  // 3. Appliquer au modèle HUD et l'afficher
                   this.cristalHUD.object3D.rotation.set(snapX, snapY, snapZ);
                   this.cristalHUD.setAttribute("visible", "true");
                   
                   btn.textContent = "Retour au Papier (AR)";
                   btn.classList.add("ortho-mode");
               } else {
-                  // Retour à la Réalité Augmentée
                   this.cristalHUD.setAttribute("visible", "false");
                   this.cristalAR.setAttribute("visible", "true");
                   btn.textContent = "Mode Projection (Vue Ortho Totale)";
@@ -80,32 +92,26 @@
           this.isDragging = false;
           this.previousPosition = { x: 0, y: 0 };
           
-          // Paramètres d'échelle initiales recalibrés pour les distances extrêmes
           this.initialScaleAR = 0.25;
-          this.initialScaleHUD = 4000; // x4000 car l'objet est à 100km !
+          this.initialScaleHUD = 4000;
           
           this.rotationSpeed = 1.5;
           this.pinchDistanceOld = 0;
 
-          // Utilitaire : Distance entre deux doigts
           const getDistance = (touches) => {
               let dx = touches[0].clientX - touches[1].clientX;
               let dy = touches[0].clientY - touches[1].clientY;
               return Math.sqrt(dx * dx + dy * dy);
           };
 
-          // --- GESTION START ---
           const onStart = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
               
               if (e.touches && e.touches.length === 2) {
-                  // Mode ZOOM (Pinch)
                   this.isDragging = false;
                   this.pinchDistanceOld = getDistance(e.touches);
-                  // Sauvegarde du scale au début du pinch pour un calcul relatif
                   target.setAttribute('data-scale-start', target.object3D.scale.x);
               } else {
-                  // Mode ROTATION (Un doigt ou souris)
                   this.isDragging = true;
                   let clientX = e.touches ? e.touches[0].clientX : e.clientX;
                   let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -113,20 +119,17 @@
               }
           };
 
-          // --- GESTION MOVE ---
           const onMove = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
 
-              // Action : ZOOM TACTILE (2 doigts)
+              // Action : ZOOM
               if (e.touches && e.touches.length === 2) {
                   let distanceNew = getDistance(e.touches);
                   let scaleStart = parseFloat(target.getAttribute('data-scale-start')) || target.object3D.scale.x;
                   
-                  // Calcul du ratio de pinch
                   let pinchRatio = distanceNew / this.pinchDistanceOld;
                   let newScale = scaleStart * pinchRatio;
                   
-                  // Limites dynamiques selon le mode (Extrêmes pour le mode Ortho)
                   let minS = this.isProjection ? 1000 : 0.02;
                   let maxS = this.isProjection ? 20000 : 5.0;
                   
@@ -135,7 +138,7 @@
                   return;
               }
 
-              // Action : ROTATION (1 doigt/souris)
+              // Action : ROTATION
               if (!this.isDragging) return;
               let clientX = e.touches ? e.touches[0].clientX : e.clientX;
               let clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -147,15 +150,12 @@
               this.previousPosition = { x: clientX, y: clientY };
           };
 
-          // --- GESTION END ---
           const onEnd = () => { this.isDragging = false; };
 
-          // --- ZOOM À LA MOLETTE / TRACKPAD (Mac) ---
           const onWheel = (e) => {
               let target = this.isProjection ? this.cristalHUD : this.cristalAR;
               let currentScale = target.object3D.scale.x;
               
-              // Le facteur de zoom doit être beaucoup plus rapide pour le modèle HUD hyper-lointain
               let zoomSpeed = this.isProjection ? 10 : 0.005; 
               let newScale = currentScale - (e.deltaY * zoomSpeed);
               
@@ -166,7 +166,6 @@
               target.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
           };
 
-          // Attachement des écouteurs globaux
           document.addEventListener('mousedown', onStart);
           document.addEventListener('mousemove', onMove);
           document.addEventListener('mouseup', onEnd);
@@ -206,7 +205,8 @@
                               src="#cristal-asset" 
                               scale="4000 4000 4000" 
                               shadow="cast: true; receive: true" 
-                              visible="false">
+                              visible="false"
+                              disable-culling>
                 </a-gltf-model>
             </a-entity>
         </a-camera>
@@ -216,7 +216,8 @@
                           src="#cristal-asset" 
                           position="0 0 0" 
                           scale="0.25 0.25 0.25" 
-                          shadow="cast: true; receive: true">
+                          shadow="cast: true; receive: true"
+                          disable-culling>
             </a-gltf-model>
         </a-entity>
 
